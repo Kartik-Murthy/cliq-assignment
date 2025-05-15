@@ -25,3 +25,18 @@ export const posts = createTable(
   }),
   (t) => [index("name_idx").on(t.name)],
 );
+
+export const properties = createTable("property", (d) => ({
+  id: d.uuid("id").defaultRandom().primaryKey(),
+  name: d.varchar("name", { length: 255 }).notNull(),
+  assetType: d.varchar("asset_type", { length: 100 }).notNull(),
+  model: d.varchar("model", { length: 255 }).notNull(),
+  address: d.varchar("address", { length: 255 }).notNull(),
+  city: d.varchar("city", { length: 100 }).notNull(),
+  state: d.varchar("state", { length: 50 }).notNull(),
+  zip: d.varchar("zip", { length: 20 }).notNull(),
+  note: d.text("note"),
+  userId: d.varchar("user_id", { length: 255 }).notNull(),
+  createdAt: d.timestamp("created_at").defaultNow().notNull(),
+  updatedAt: d.timestamp("updated_at").defaultNow().notNull(),
+}));
