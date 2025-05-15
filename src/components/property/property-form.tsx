@@ -18,11 +18,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { propertyInputSchema, type PropertyInput } from "@/lib/types";
+import {
+  assetTypes,
+  modelTypes,
+  propertyInputSchema,
+  type Property,
+  type PropertyInput,
+} from "@/lib/types";
 import { api } from "@/trpc/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -34,13 +40,28 @@ import {
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 
-const AddPropertyForm = () => {
+interface PropertyFormProps {
+  editMode?: boolean;
+  propertyToEdit?: Property;
+  onSuccess?: () => void;
+  trigger?: React.ReactNode;
+}
+
+const PropertyForm = ({
+  editMode = false,
+  propertyToEdit,
+  onSuccess,
+  trigger,
+}: PropertyFormProps) => {
   const [open, setOpen] = useState(false);
   const utils = api.useUtils();
+
+  // Add property mutation
   const { mutateAsync: addProperty } = api.property.create.useMutation({
     onSuccess: async () => {
       toast.success("Property added successfully");
       await utils.property.getAll.invalidate();
+      onSuccess?.();
     },
     onError: (error) => {
       toast.error("Failed to add property");
@@ -48,29 +69,82 @@ const AddPropertyForm = () => {
     },
   });
 
+  // Update property mutation
+  const { mutateAsync: updateProperty } = api.property.edit.useMutation({
+    onSuccess: async () => {
+      toast.success("Property updated successfully");
+      await utils.property.getAll.invalidate();
+      onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error("Failed to update property");
+      console.error("Failed to update property", error);
+    },
+  });
+
   const form = useForm<PropertyInput>({
     resolver: zodResolver(propertyInputSchema),
     defaultValues: {
       name: "",
-
       address: "",
       city: "",
       state: "",
       zip: "",
       note: "",
+      assetType: undefined,
+      model: undefined,
     },
   });
+
+  // Set form values when editing and property data changes
+  useEffect(() => {
+    if (editMode && propertyToEdit) {
+      form.reset({
+        name: propertyToEdit?.name ?? "",
+        address: propertyToEdit?.address ?? "",
+        city: propertyToEdit?.city ?? "",
+        state: propertyToEdit?.state ?? "",
+        zip: propertyToEdit?.zip ?? "",
+        note: propertyToEdit?.note ?? "",
+        assetType: assetTypes.find((type) => type === propertyToEdit.assetType),
+        model: modelTypes.find((type) => type === propertyToEdit.model),
+      });
+    }
+  }, [editMode, propertyToEdit, form]);
 
   const onSubmit: SubmitHandler<PropertyInput> = async (data) => {
     setOpen(false);
     try {
-      await addProperty(data); // Call the create mutation
+      if (editMode && propertyToEdit) {
+        await updateProperty({
+          id: propertyToEdit.id,
+          data,
+        });
+      } else {
+        await addProperty(data);
+      }
     } catch (error) {
-      console.error("Error creating property", error);
+      console.error(
+        `Error ${editMode ? "updating" : "creating"} property`,
+        error,
+      );
     } finally {
       form.reset();
     }
   };
+
+  // Default trigger if none is provided
+  const defaultTrigger = editMode ? (
+    <Button variant="outline" size="sm" className="cursor-pointer">
+      <Pencil className="h-4 w-4 text-blue-600" />
+    </Button>
+  ) : (
+    (trigger ?? (
+      <Button className="h-6 w-6 cursor-pointer rounded-full" size="icon">
+        <Plus strokeWidth={2.5} />
+      </Button>
+    ))
+  );
 
   return (
     <Dialog
@@ -79,19 +153,18 @@ const AddPropertyForm = () => {
         setOpen(isOpen);
         if (!isOpen) {
           form.clearErrors();
+          if (!editMode) {
+            form.reset();
+          }
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button className="h-6 w-6 cursor-pointer rounded-full" size="icon">
-          <Plus strokeWidth={2.5} />
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger ?? defaultTrigger}</DialogTrigger>
 
       <DialogContent className="max-h-[98vh] rounded-xl text-sm">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">
-            Add Property
+            {editMode ? "Edit Property" : "Add Property"}
           </DialogTitle>
         </DialogHeader>
 
@@ -128,6 +201,7 @@ const AddPropertyForm = () => {
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="hover:bg-accent hover:text-accent-foreground h-8 w-full cursor-pointer text-sm">
@@ -166,6 +240,7 @@ const AddPropertyForm = () => {
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="hover:bg-accent hover:text-accent-foreground h-8 w-full cursor-pointer text-sm">
@@ -292,7 +367,7 @@ const AddPropertyForm = () => {
               className="cursor-pointer"
               onClick={form.handleSubmit(onSubmit)}
             >
-              Save
+              {editMode ? "Update" : "Save"}
             </Button>
             <Button
               type="button"
@@ -313,4 +388,4 @@ const AddPropertyForm = () => {
   );
 };
 
-export default AddPropertyForm;
+export default PropertyForm;
