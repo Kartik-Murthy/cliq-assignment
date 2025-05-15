@@ -66,6 +66,7 @@ const Pagination = ({ totalItems, onPageChange }: PaginationProps) => {
       <Button
         variant="ghost"
         size="sm"
+        className="cursor-pointer"
         onClick={() => goToPage(1)}
         disabled={currentPage === 1}
       >
@@ -74,6 +75,7 @@ const Pagination = ({ totalItems, onPageChange }: PaginationProps) => {
       <Button
         variant="ghost"
         size="sm"
+        className="cursor-pointer"
         onClick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 1}
       >
@@ -98,6 +100,7 @@ const Pagination = ({ totalItems, onPageChange }: PaginationProps) => {
       <Button
         variant="ghost"
         size="sm"
+        className="cursor-pointer"
         onClick={() => goToPage(currentPage + 1)}
         disabled={currentPage === numPages}
       >
@@ -106,6 +109,7 @@ const Pagination = ({ totalItems, onPageChange }: PaginationProps) => {
       <Button
         variant="ghost"
         size="sm"
+        className="cursor-pointer"
         onClick={() => goToPage(numPages)}
         disabled={currentPage === numPages}
       >
@@ -118,13 +122,17 @@ const Pagination = ({ totalItems, onPageChange }: PaginationProps) => {
           value={pageSize.toString()}
           onValueChange={handlePageSizeChange}
         >
-          <SelectTrigger className="h-8 max-w-[80px] min-w-[80px] justify-between truncate bg-white text-sm text-black">
+          <SelectTrigger className="h-8 max-w-[80px] min-w-[80px] cursor-pointer justify-between truncate bg-white text-sm text-black">
             <SelectValue />
           </SelectTrigger>
 
           <SelectContent>
             {[10, 25, 50, 100].map((size) => (
-              <SelectItem key={size} value={size.toString()}>
+              <SelectItem
+                key={size}
+                className="cursor-pointer"
+                value={size.toString()}
+              >
                 {size}
               </SelectItem>
             ))}

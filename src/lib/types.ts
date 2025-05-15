@@ -1,9 +1,12 @@
 import { z } from "zod";
 
+const assetTypes = ["Multifamily", "Office", "Retail", "Industrial"] as const;
+const modelTypes = ["Standard", "Premium", "Luxury", "Custom"] as const;
+
 export const propertyInputSchema = z.object({
   name: z.string().min(1),
-  assetType: z.string().min(1),
-  model: z.string().min(1),
+  assetType: z.enum(assetTypes),
+  model: z.enum(modelTypes),
   address: z.string().min(1),
   city: z.string().min(1),
   state: z.string().min(1),
