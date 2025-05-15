@@ -36,9 +36,11 @@ import { Textarea } from "../ui/textarea";
 
 const AddPropertyForm = () => {
   const [open, setOpen] = useState(false);
+  const utils = api.useUtils();
   const { mutateAsync: addProperty } = api.property.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Property added successfully");
+      await utils.property.getAll.invalidate();
     },
     onError: (error) => {
       toast.error("Failed to add property");
@@ -81,8 +83,8 @@ const AddPropertyForm = () => {
       }}
     >
       <DialogTrigger asChild>
-        <Button className="cursor-pointer rounded-full" size="icon">
-          <Plus strokeWidth={3} />
+        <Button className="h-6 w-6 cursor-pointer rounded-full" size="icon">
+          <Plus strokeWidth={2.5} />
         </Button>
       </DialogTrigger>
 
@@ -272,6 +274,7 @@ const AddPropertyForm = () => {
                   <FormControl>
                     <Textarea
                       {...field}
+                      value={field.value ?? ""}
                       placeholder="Optional note"
                       className="hover:bg-accent hover:text-accent-foreground focus:bg-background text-sm focus:text-black"
                       rows={2}
