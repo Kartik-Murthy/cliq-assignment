@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { type Property } from "@/lib/types";
+import { type Property, type PropertyInput } from "@/lib/types";
 import { api } from "@/trpc/react";
 import {
   AllCommunityModule,
@@ -10,36 +10,35 @@ import {
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { FolderClosed, Mail, Trash2 } from "lucide-react";
-import { useCallback } from "react";
-import PropertyForm from "./property-form"; // Import the renamed component
+import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
+import PropertyForm from "./property-form";
 
+// Register modules once outside the component
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+// Extracted cell renderer components
 const IconRenderer = () => (
   <div className="flex h-full items-center justify-center">
     <FolderClosed className="h-5 w-5 text-gray-600" />
   </div>
 );
 
-const DateRenderer = ({ date }: { date: Date | undefined }) => (
-  <p>
-    {date?.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })}
-  </p>
+const DateRenderer = ({ value }: { value: Date | undefined }) => (
+  <p>{value?.toLocaleDateString("en-IN", { dateStyle: "medium" })}</p>
 );
 
 interface ActionsRendererProps {
   data: Property;
-  onEdit: (property: Property) => void;
   onDelete: (id: string) => void;
 }
 
-const ActionsRenderer = ({ data, onEdit, onDelete }: ActionsRendererProps) => (
+const ActionsRenderer = ({ data, onDelete }: ActionsRendererProps) => (
   <div className="flex h-full items-center justify-end space-x-3">
-    <PropertyForm editMode={true} propertyToEdit={data} />
+    <PropertyForm
+      editMode={true}
+      propertyToEdit={data as PropertyInput & { id: string }}
+    />
     <Button
       variant="outline"
       size="sm"
@@ -48,12 +47,7 @@ const ActionsRenderer = ({ data, onEdit, onDelete }: ActionsRendererProps) => (
     >
       <Trash2 className="h-4 w-4 text-red-600" />
     </Button>
-    <Button
-      variant="outline"
-      size="sm"
-      disabled
-      onClick={() => console.log("Email:", data.id)}
-    >
+    <Button variant="outline" size="sm" disabled>
       <Mail className="h-4 w-4 text-green-600" />
     </Button>
   </div>
@@ -64,85 +58,87 @@ export default function PropertyTable() {
   const utils = api.useUtils();
 
   const { mutate: deleteProperty } = api.property.delete.useMutation({
-    onSuccess: async () => {
-      await utils.property.getAll.invalidate();
+    onSuccess: () => {
+      utils.property.getAll
+        .invalidate()
+        .then(() => toast.success("Property deleted successfully"))
+        .catch((error) => {
+          toast.error("Failed to delete property");
+          console.error("Failed to delete property", error);
+        });
     },
   });
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this property?")) {
-      deleteProperty({ id });
-    }
-  };
+  const handleDelete = useCallback(
+    (id: string) => {
+      if (confirm("Are you sure you want to delete this property?")) {
+        deleteProperty({ id });
+      }
+    },
+    [deleteProperty],
+  );
 
-  // Column definitions with proper typing
-  const columnDefs = useCallback(
-    () =>
-      [
-        {
-          headerName: "",
-          field: undefined,
-          width: 60,
-          cellRenderer: IconRenderer,
-          sortable: false,
-          filter: false,
-        },
-        {
-          headerName: "Property Name",
-          field: "name",
-          flex: 1,
-        },
-        {
-          headerName: "Asset Type",
-          field: "assetType",
-          flex: 1,
-        },
-        {
-          headerName: "Model Used",
-          field: "model",
-          flex: 1,
-        },
-        {
-          headerName: "Created At",
-          field: "createdAt",
-          flex: 1,
-          cellRenderer: (params: { data: Property }) => (
-            <DateRenderer date={params.data.createdAt} />
-          ),
-        },
-        {
-          headerName: "Updated At",
-          field: "updatedAt",
-          flex: 1,
-          cellRenderer: (params: { data: Property }) => (
-            <DateRenderer date={params.data.updatedAt} />
-          ),
-        },
-        {
-          field: undefined,
-          flex: 1,
-          cellRenderer: (params: { data: Property }) => (
-            <ActionsRenderer
-              data={params.data}
-              onDelete={handleDelete}
-              onEdit={() => {
-                console.log("delete");
-              }} // Not needed but provided for completeness
-            />
-          ),
-          sortable: false,
-          filter: false,
-        },
-      ] as ColDef<Property>[],
+  // Column definitions with memoization
+  const columnDefs = useMemo<ColDef<Property>[]>(
+    () => [
+      {
+        headerName: "",
+        width: 60,
+        cellRenderer: IconRenderer,
+        sortable: false,
+        filter: false,
+      },
+      {
+        headerName: "Property Name",
+        field: "name",
+        flex: 1,
+      },
+      {
+        headerName: "Asset Type",
+        field: "assetType",
+        flex: 1,
+      },
+      {
+        headerName: "Model Used",
+        field: "model",
+        flex: 1,
+      },
+      {
+        headerName: "Created At",
+        field: "createdAt",
+        flex: 1,
+        cellRenderer: DateRenderer,
+        valueGetter: (params) => params.data?.createdAt,
+        filter: "agDateColumnFilter",
+      },
+      {
+        headerName: "Updated At",
+        field: "updatedAt",
+        flex: 1,
+        cellRenderer: DateRenderer,
+        valueGetter: (params) => params.data?.updatedAt,
+      },
+      {
+        flex: 1,
+        cellRenderer: (params: { data: Property }) => (
+          <ActionsRenderer data={params.data} onDelete={handleDelete} />
+        ),
+        sortable: false,
+        filter: false,
+      },
+    ],
     [handleDelete],
   );
 
-  const defaultColDef = {
-    suppressMovable: true,
-    resizable: false,
-    sortable: true,
-    filter: true,
-  };
+  const defaultColDef = useMemo(
+    () => ({
+      suppressMovable: true,
+      resizable: false,
+      sortable: true,
+      filter: true,
+    }),
+    [],
+  );
 
   const onGridReady = useCallback(
     (params: { api: { sizeColumnsToFit: () => void } }) => {
@@ -158,12 +154,12 @@ export default function PropertyTable() {
   return (
     <div>
       <div className="flex justify-end py-2">
-        <PropertyForm trigger={<div></div>} />
+        <PropertyForm />
       </div>
       <div className="ag-theme-alpine my-2 h-[60vh] w-full p-3">
         <AgGridReact
           rowData={properties ?? []}
-          columnDefs={columnDefs()}
+          columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           animateRows
           pagination

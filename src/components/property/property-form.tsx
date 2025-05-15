@@ -19,69 +19,38 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-  assetTypes,
-  modelTypes,
-  propertyInputSchema,
-  type Property,
-  type PropertyInput,
-} from "@/lib/types";
-import { api } from "@/trpc/react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { toast } from "sonner";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { Textarea } from "../ui/textarea";
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { propertyInputSchema, type PropertyInput } from "@/lib/types";
+import { api } from "@/trpc/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Pencil, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 interface PropertyFormProps {
   editMode?: boolean;
-  propertyToEdit?: Property;
+  propertyToEdit?: PropertyInput & { id: string };
   onSuccess?: () => void;
   trigger?: React.ReactNode;
 }
 
-const PropertyForm = ({
+export default function PropertyForm({
   editMode = false,
   propertyToEdit,
   onSuccess,
   trigger,
-}: PropertyFormProps) => {
+}: PropertyFormProps) {
   const [open, setOpen] = useState(false);
   const utils = api.useUtils();
 
-  // Add property mutation
-  const { mutateAsync: addProperty } = api.property.create.useMutation({
-    onSuccess: async () => {
-      toast.success("Property added successfully");
-      await utils.property.getAll.invalidate();
-      onSuccess?.();
-    },
-    onError: (error) => {
-      toast.error("Failed to add property");
-      console.error("Failed to create property", error);
-    },
-  });
-
-  // Update property mutation
-  const { mutateAsync: updateProperty } = api.property.edit.useMutation({
-    onSuccess: async () => {
-      toast.success("Property updated successfully");
-      await utils.property.getAll.invalidate();
-      onSuccess?.();
-    },
-    onError: (error) => {
-      toast.error("Failed to update property");
-      console.error("Failed to update property", error);
-    },
-  });
-
+  // Form setup with Zod validation
   const form = useForm<PropertyInput>({
     resolver: zodResolver(propertyInputSchema),
     defaultValues: {
@@ -96,23 +65,46 @@ const PropertyForm = ({
     },
   });
 
+  // Mutations
+  const { mutateAsync: addProperty } = api.property.create.useMutation({
+    onSuccess: async () => {
+      toast.success("Property added successfully");
+      await utils.property.getAll.invalidate();
+      onSuccess?.();
+    },
+    onError: () => {
+      toast.error("Failed to add property");
+    },
+  });
+
+  const { mutateAsync: updateProperty } = api.property.edit.useMutation({
+    onSuccess: async () => {
+      toast.success("Property updated successfully");
+      await utils.property.getAll.invalidate();
+      onSuccess?.();
+    },
+    onError: () => {
+      toast.error("Failed to update property");
+    },
+  });
+
   // Set form values when editing and property data changes
   useEffect(() => {
     if (editMode && propertyToEdit) {
       form.reset({
-        name: propertyToEdit?.name ?? "",
-        address: propertyToEdit?.address ?? "",
-        city: propertyToEdit?.city ?? "",
-        state: propertyToEdit?.state ?? "",
-        zip: propertyToEdit?.zip ?? "",
-        note: propertyToEdit?.note ?? "",
-        assetType: assetTypes.find((type) => type === propertyToEdit.assetType),
-        model: modelTypes.find((type) => type === propertyToEdit.model),
+        name: propertyToEdit.name ?? "",
+        address: propertyToEdit.address ?? "",
+        city: propertyToEdit.city ?? "",
+        state: propertyToEdit.state ?? "",
+        zip: propertyToEdit.zip ?? "",
+        note: propertyToEdit.note ?? "",
+        assetType: propertyToEdit.assetType,
+        model: propertyToEdit.model,
       });
     }
   }, [editMode, propertyToEdit, form]);
 
-  const onSubmit: SubmitHandler<PropertyInput> = async (data) => {
+  const onSubmit = async (data: PropertyInput) => {
     setOpen(false);
     try {
       if (editMode && propertyToEdit) {
@@ -123,27 +115,30 @@ const PropertyForm = ({
       } else {
         await addProperty(data);
       }
+      // Only reset the form for new property creation
+      if (!editMode) {
+        form.reset();
+      }
     } catch (error) {
       console.error(
         `Error ${editMode ? "updating" : "creating"} property`,
         error,
       );
-    } finally {
-      form.reset();
     }
   };
 
-  // Default trigger if none is provided
+  // Default trigger based on mode
   const defaultTrigger = editMode ? (
     <Button variant="outline" size="sm" className="cursor-pointer">
       <Pencil className="h-4 w-4 text-blue-600" />
     </Button>
   ) : (
-    (trigger ?? (
+    <div className="flex w-full items-center justify-start gap-x-2 px-3">
+      <h1 className="text-xl font-bold">Property</h1>
       <Button className="h-6 w-6 cursor-pointer rounded-full" size="icon">
         <Plus strokeWidth={2.5} />
       </Button>
-    ))
+    </div>
   );
 
   return (
@@ -153,9 +148,6 @@ const PropertyForm = ({
         setOpen(isOpen);
         if (!isOpen) {
           form.clearErrors();
-          if (!editMode) {
-            form.reset();
-          }
         }
       }}
     >
@@ -201,7 +193,6 @@ const PropertyForm = ({
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
-                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="hover:bg-accent hover:text-accent-foreground h-8 w-full cursor-pointer text-sm">
@@ -240,7 +231,6 @@ const PropertyForm = ({
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
-                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="hover:bg-accent hover:text-accent-foreground h-8 w-full cursor-pointer text-sm">
@@ -367,7 +357,7 @@ const PropertyForm = ({
               className="cursor-pointer"
               onClick={form.handleSubmit(onSubmit)}
             >
-              {editMode ? "Update" : "Save"}
+              {editMode ? "Update" : "Create"}
             </Button>
             <Button
               type="button"
@@ -376,7 +366,6 @@ const PropertyForm = ({
               className="cursor-pointer"
               onClick={() => {
                 setOpen(false);
-                form.clearErrors();
               }}
             >
               Cancel
@@ -386,6 +375,4 @@ const PropertyForm = ({
       </DialogContent>
     </Dialog>
   );
-};
-
-export default PropertyForm;
+}
