@@ -1,12 +1,5 @@
 import { z } from "zod";
-
-export const assetTypes = [
-  "Multifamily",
-  "Office",
-  "Retail",
-  "Industrial",
-] as const;
-export const modelTypes = ["Standard", "Premium", "Luxury", "Custom"] as const;
+import { assetTypes, modelTypes } from "./constants";
 
 export const propertyInputSchema = z.object({
   name: z.string().min(1),

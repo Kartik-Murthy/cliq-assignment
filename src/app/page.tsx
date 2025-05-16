@@ -1,10 +1,8 @@
-import PropertyTable from "@/components/property/property-table";
+import PropertyTable from "@/components/property/table/property-table";
 import { api, HydrateClient } from "@/trpc/server";
 
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-
-  void api.post.getLatest.prefetch();
+export default async function PropertyPage() {
+  await api.property.getAll.prefetch();
 
   return (
     <HydrateClient>
